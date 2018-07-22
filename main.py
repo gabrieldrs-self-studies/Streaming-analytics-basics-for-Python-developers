@@ -1,4 +1,5 @@
 from streamsx.topology.topology import Topology
+from streamsx.topology import schema
 from streamsx.topology.context import *
 from streams.observations import observation_stream  # Cannot use "as X"
 
@@ -16,7 +17,7 @@ cfg = {
 
 # Create Topology and read from data source
 topo = Topology()
-patient_data_stream = topo.source(observation_stream)
+patient_data_stream = topo.subscribe('ingest-beacon', schema.CommonSchema.Json)
 
 # Filtering data
 heart_rate_stream = patient_data_stream.filter(lambda tuple_: (tuple_['reading']['readingType']['code'] == '8867-4'))

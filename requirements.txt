@@ -1,1 +1,2 @@
 streamsx==1.9.8
+git+https://github.com/IBMStreams/streamsx.health#egg=streamsx_health.ingest&subdirectory=ingest/common/python/package

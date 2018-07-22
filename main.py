@@ -4,6 +4,8 @@ from streamsx.topology.context import *
 from streams.observations import observation_stream  # Cannot use "as X"
 
 import hashlib
+from collections import deque
+import threading
 
 from streamsx_health.ingest.Observation import getReadingValue
 
@@ -30,6 +32,10 @@ class Avg(object):
 
         return sum(self.last_n) / len(self.last_n)
 
+def data_collecter(view):
+    for d in iter(view.get, None):
+        plot_queue.append(float(d))
+
 
 # Set up access to Streaming Analytics service
 vs = {'streaming-analytics': [{'name': service_name, 'credentials': credentials}]}
@@ -53,8 +59,37 @@ heart_rate_stream = anonymous_patient_stream.filter(lambda tuple_: (tuple_['read
 # Calculate the patient's heart rate average based on the latest 10 tuples
 heart_average_stream = heart_rate_stream.map(Avg(10))
 
+# Creating view
+heart_average_view = heart_average_stream.view()
+
 # Print data stream
 heart_average_stream.sink(print)
 
 # Submit on Bluemix
 submit(ContextTypes.ANALYTICS_SERVICE, topo, cfg)
+
+view = heart_average_view.start_data_fetch()
+
+plot_queue = deque([], 2000)
+
+data_pull_thread = threading.Thread(target=data_collecter, args=(view, ))
+data_pull_thread.start()
+
+import time
+from IPython import display
+# For matlab to work properly on mac, you have to install Python as framework, with pyenv run:
+#  env PYTHON_CONFIGURE_OPTS="--enable-framework CC=clang" pyenv install 3.5.5
+from matplotlib import pylab as pl
+
+pl.rcParams['figure.figsize'] = (14.0, 8.0)
+
+while (True):
+    pl.clf()
+    ax = pl.gca()
+    ax.set_autoscale_on(False)
+    ax.plot(plot_queue)
+    ax.axis([0, 2000, 50, 120])
+    display.display(pl.gcf())
+    print(len(plot_queue))
+    display.clear_output(wait=True)
+    time.sleep(1.0)
